@@ -38,17 +38,38 @@ const contactLinks = [
 
 export default function Contact() {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
-  const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
+  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus("sending");
-    await new Promise((r) => setTimeout(r, 1200));
-    setStatus("sent");
-    setTimeout(() => {
-      setStatus("idle");
-      setForm({ name: "", email: "", message: "" });
-    }, 3000);
+    setErrorMsg("");
+
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErrorMsg(data.error ?? "Gagal mengirim pesan.");
+        setStatus("error");
+        return;
+      }
+
+      setStatus("sent");
+      setTimeout(() => {
+        setStatus("idle");
+        setForm({ name: "", email: "", message: "" });
+      }, 4000);
+    } catch {
+      setErrorMsg("Koneksi gagal. Periksa internet kamu.");
+      setStatus("error");
+    }
   };
 
   return (
@@ -170,21 +191,29 @@ export default function Contact() {
                 />
               </div>
 
+              {status === "error" && (
+                <p className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                  {errorMsg}
+                </p>
+              )}
+
               <motion.button
                 type="submit"
-                disabled={status !== "idle"}
-                whileHover={status === "idle" ? { scale: 1.02 } : {}}
-                whileTap={status === "idle" ? { scale: 0.97 } : {}}
+                disabled={status === "sending" || status === "sent"}
+                whileHover={status === "idle" || status === "error" ? { scale: 1.02 } : {}}
+                whileTap={status === "idle" || status === "error" ? { scale: 0.97 } : {}}
                 className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold text-sm transition-all duration-300 ${
                   status === "sent"
                     ? "bg-green-500/20 border border-green-500/40 text-green-400"
                     : status === "sending"
                     ? "bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 cursor-wait"
+                    : status === "error"
+                    ? "bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20"
                     : "bg-cyan-500 text-black hover:bg-cyan-400 hover:shadow-[0_0_25px_rgba(0,212,255,0.4)]"
                 }`}
               >
                 {status === "sent" ? (
-                  "Message sent! I'll get back to you soon."
+                  "Pesan terkirim! Saya akan segera membalas."
                 ) : status === "sending" ? (
                   <>
                     <motion.div
@@ -192,12 +221,17 @@ export default function Contact() {
                       transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                       className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full"
                     />
-                    Sending...
+                    Mengirim...
+                  </>
+                ) : status === "error" ? (
+                  <>
+                    <Send className="w-4 h-4" />
+                    Coba Lagi
                   </>
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
-                    Send Message
+                    Kirim Pesan
                   </>
                 )}
               </motion.button>
